@@ -581,7 +581,6 @@ impl Board {
             Castling(kind) => {
                 let direction: i8 = if self.turn == First { -1 } else { 1 };
                 let home_row = if direction == 1 { 0 } else { self.size - 1 };
-                // println!("Home row is: {home_row}");
                 let rook_col = if kind == Long { 0 } else { self.size - 1 };
                 if ![2, 6].contains(&end.col) {
                     return false;
@@ -597,11 +596,9 @@ impl Board {
                 let king = self.get_piece_from_location(king_location);
                 if let Some(king) = king {
                     if king.kind != King || king.moved == true {
-                        println!("Wrong at king: {:?}", king.kind);
                         return false;
                     }
                 } else {
-                    println!("Nothing at king");
                     return false;
                 }
                 let rook_location = Location {
@@ -611,11 +608,9 @@ impl Board {
                 let rook = self.get_piece_from_location(rook_location);
                 if let Some(rook) = rook {
                     if rook.kind != Rook || rook.moved == true {
-                        println!("Wrong at rook");
                         return false;
                     }
                 } else {
-                    println!("Nothing at rook");
                     return false;
                 }
 
@@ -627,7 +622,6 @@ impl Board {
                         col: i,
                     };
                     if self.get_piece_from_location(location) != None {
-                        println!("Piece blocks at {:?}", location);
                         return false;
                     }
                 }
@@ -661,10 +655,8 @@ impl Board {
         if let Some(piece) = piece {
             if piece.kind == King && end.col.abs_diff(start.col) > 1 {
                 if end.col as isize - start.col as isize > 0 {
-                    // println!("Short found");
                     kind = Castling(Short);
                 } else {
-                    // println!("Long found");
                     kind = Castling(Long);
                 }
             } else if piece.kind == Pawn {

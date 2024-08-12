@@ -25,8 +25,11 @@ async fn main() {
     board.set_fen(&start_fen);
 
     loop {
-        // println!("Turn: {:?}", board.turn);
         draw_board(&board).await;
+        if let Some(last_action) = board.last_action {
+            highlight_square(&board, last_action.start).await;
+            highlight_square(&board, last_action.end).await;
+        }
         draw_pieces(&board).await;
 
         if let Some(location) = board.selected {
