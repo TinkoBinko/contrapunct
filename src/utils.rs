@@ -55,6 +55,7 @@ pub struct Board {
     pub turn: PieceColor,
     pub selected: Option<Location>,
     pub last_action: Option<Action>,
+    pub action_list: Vec<Action>,
 }
 
 #[derive(Debug)]
@@ -291,6 +292,7 @@ impl Board {
             turn: First,
             selected: None,
             last_action: None,
+            action_list: Vec::new(),
         }
     }
     pub fn clear(&mut self) {
@@ -440,7 +442,11 @@ impl Board {
             self.turn = First
         };
         self.selected = None;
+        if let Some(last_action) = self.last_action {
+            self.action_list.push(last_action);
+        }
         self.last_action = Some(action);
+        // print!("{:?} ", self.action_list);
 
         Ok(())
     }
