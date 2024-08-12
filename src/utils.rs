@@ -414,7 +414,8 @@ impl Board {
         let start_piece = self.get_piece_from_location(start);
         let end_piece = self.get_piece_from_location(end);
 
-        if let Some(start_piece) = start_piece {
+        if let Some(mut start_piece) = start_piece {
+            start_piece.moved = true;
             match kind {
                 Normal => {
                     self.clear_piece(start);
@@ -434,13 +435,15 @@ impl Board {
                         row: home_row,
                         col: 4,
                     };
-                    let king = self.get_piece_from_location(king_location).unwrap();
+                    let mut king = self.get_piece_from_location(king_location).unwrap();
+                    king.moved = true;
                     let dir: i8 = if ckind == Long { -1 } else { 1 };
                     let rook_location = Location {
                         row: home_row,
                         col: rook_col,
                     };
-                    let rook = self.get_piece_from_location(rook_location).unwrap();
+                    let mut rook = self.get_piece_from_location(rook_location).unwrap();
+                    rook.moved = true;
                     let new_king_location = Location {
                         row: home_row,
                         col: (4 + 2 * dir) as usize,
