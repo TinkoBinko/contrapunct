@@ -48,11 +48,12 @@ pub struct Piece {
     pub color: PieceColor,
     pub moved: bool,
 }
+type Position = Vec<Vec<Option<Piece>>>;
+
 #[derive(Debug)]
 pub struct Board {
     pub size: usize,
-    pub position: Vec<Vec<Option<Piece>>>,
-    pub previous_position: Vec<Vec<Option<Piece>>>,
+    pub position: Position,
     pub turn: PieceColor,
     pub selected: Option<Location>,
     pub last_action: Option<Action>,
@@ -315,7 +316,6 @@ impl Board {
         Board {
             size,
             position: vec![vec![None; size]; size],
-            previous_position: vec![vec![None; size]; size],
             turn: First,
             selected: None,
             last_action: None,
@@ -324,7 +324,6 @@ impl Board {
     }
     pub fn clear(&mut self) {
         self.position = vec![vec![None; self.size]; self.size];
-        self.previous_position = self.position.clone();
     }
     pub fn set_piece(&mut self, piece: Piece, location: Location) {
         let Location { row, col } = location;
@@ -366,7 +365,6 @@ impl Board {
                 }
             };
         }
-        self.previous_position = self.position.clone();
     }
 
     pub fn get_piece_from_location(&self, location: Location) -> Option<Piece> {
@@ -396,95 +394,111 @@ impl Board {
         }
     }
 
-    pub fn make_move(&mut self, action: Action) -> Result<(), MoveError> {
+    pub fn commit_move(&mut self, action: Action) -> Result<(), MoveError> {
+        let test = self.test_move(action);
+        if let Err(message) = test {
+            return Err(message);
+        }
+        self.make_move(action);
+        if let Some(last_action) = self.last_action {
+            self.action_list.push(last_action);
+        }
+        self.last_action = Some(action);
+        // println!("{}", self.is_check(self.turn));
+        self.turn = opposite_color(self.turn);
+        self.selected = None;
+        Ok(())
+    }
+    pub fn make_move(&mut self, action: Action) {
         let Action { start, end, kind } = action;
-        let start_piece = match self.position[start.row][start.col] {
-            Some(piece) => piece,
-            None => return Err(MoveError::StartSquareEmpty),
-        };
-        let end_piece = self.position[end.row][end.col];
+        let start_piece = self.get_piece_from_location(start);
+        let end_piece = self.get_piece_from_location(end);
+
+        if let Some(start_piece) = start_piece {
+            match kind {
+                Normal => {
+                    self.clear_piece(start);
+                    self.clear_piece(end);
+                    self.set_piece(start_piece, end);
+                }
+                Capture => {
+                    self.clear_piece(start);
+                    self.set_piece(start_piece, end);
+                }
+                Castling(ckind) => {
+                    let direction: i8 = if self.turn == First { -1 } else { 1 };
+                    let home_row = if direction == 1 { 0 } else { self.size - 1 };
+                    let rook_col = if ckind == Long { 0 } else { self.size - 1 };
+
+                    let king_location = Location {
+                        row: home_row,
+                        col: 4,
+                    };
+                    let king = self.get_piece_from_location(king_location).unwrap();
+                    let dir: i8 = if ckind == Long { -1 } else { 1 };
+                    let rook_location = Location {
+                        row: home_row,
+                        col: rook_col,
+                    };
+                    let rook = self.get_piece_from_location(rook_location).unwrap();
+                    let new_king_location = Location {
+                        row: home_row,
+                        col: (4 + 2 * dir) as usize,
+                    };
+                    let new_rook_location = Location {
+                        row: home_row,
+                        col: (4 + dir) as usize,
+                    };
+                    self.clear_piece(king_location);
+                    self.clear_piece(rook_location);
+                    self.set_piece(king, new_king_location);
+                    self.set_piece(rook, new_rook_location);
+                }
+                EnPassant => {
+                    self.clear_piece(start);
+                    self.clear_piece(Location {
+                        row: start.row,
+                        col: end.col,
+                    });
+                    self.set_piece(start_piece, end);
+                }
+                Promotion(pkind) => {
+                    self.clear_piece(start);
+                    self.clear_piece(end);
+                    let new_piece = Piece::new(pkind, self.turn);
+                    self.set_piece(new_piece, end);
+                }
+            };
+        }
+    }
+    pub fn test_move(&mut self, action: Action) -> Result<(), MoveError> {
+        let Action { start, end, kind } = action;
+        let start_piece = self.get_piece_from_location(start);
+        if start_piece == None {
+            return Err(MoveError::StartSquareEmpty);
+        }
+        let start_piece = start_piece.unwrap();
+        let end_piece = self.get_piece_from_location(end);
 
         if self.turn != start_piece.color {
-            println!("It's {:?}'s turn", self.turn);
+            // println!("It's {:?}'s turn", self.turn);
             return Err(MoveError::InvalidPieceColor);
         }
 
         if !self.is_valid_action(action) {
-            println!("Invalid action");
+            // println!("Invalid action");
             return Err(MoveError::InvalidAction);
         };
 
-        // let previous_position = self.previous_position.clone();
-        // self.previous_position = self.position.clone();
         let current_position = self.position.clone();
 
-        match kind {
-            Normal => {
-                self.clear_piece(start);
-                self.clear_piece(end);
-                self.set_piece(start_piece, end);
-            }
-            Capture => {
-                self.clear_piece(start);
-                self.set_piece(start_piece, end);
-            }
-            Castling(ckind) => {
-                let direction: i8 = if self.turn == First { -1 } else { 1 };
-                let home_row = if direction == 1 { 0 } else { self.size - 1 };
-                let rook_col = if ckind == Long { 0 } else { self.size - 1 };
-
-                let king_location = Location {
-                    row: home_row,
-                    col: 4,
-                };
-                let king = self.get_piece_from_location(king_location).unwrap();
-                let dir: i8 = if ckind == Long { -1 } else { 1 };
-                let rook_location = Location {
-                    row: home_row,
-                    col: rook_col,
-                };
-                let rook = self.get_piece_from_location(rook_location).unwrap();
-                let new_king_location = Location {
-                    row: home_row,
-                    col: (4 + 2 * dir) as usize,
-                };
-                let new_rook_location = Location {
-                    row: home_row,
-                    col: (4 + dir) as usize,
-                };
-                self.clear_piece(king_location);
-                self.clear_piece(rook_location);
-                self.set_piece(king, new_king_location);
-                self.set_piece(rook, new_rook_location);
-            }
-            EnPassant => {
-                self.clear_piece(start);
-                self.clear_piece(Location {
-                    row: start.row,
-                    col: end.col,
-                });
-                self.set_piece(start_piece, end);
-            }
-            Promotion(pkind) => {
-                self.clear_piece(start);
-                self.clear_piece(end);
-                let new_piece = Piece::new(pkind, self.turn);
-                self.set_piece(new_piece, end);
-            }
-        };
+        self.make_move(action);
 
         if self.is_check(self.turn) {
             self.position = current_position;
             return Err(MoveError::RemainsInCheck);
         }
-        self.turn = opposite_color(self.turn);
-        self.selected = None;
-        if let Some(last_action) = self.last_action {
-            self.action_list.push(last_action);
-        }
-        self.last_action = Some(action);
-        println!("{}", self.is_check(self.turn));
-        // print!("{:?} ", self.action_list);
+        self.position = current_position;
 
         Ok(())
     }
@@ -678,13 +692,13 @@ impl Board {
         true
     }
 
-    pub fn get_valid_actions(&self, start: Location) -> Vec<Action> {
+    pub fn get_valid_actions(&mut self, start: Location) -> Vec<Action> {
         let mut actions = Vec::new();
         for row in 0..self.position.len() {
             for col in 0..self.position[row].len() {
                 let end = Location { row, col };
                 let action = self.get_action_from_locations(start, end);
-                if self.is_valid_action(action) {
+                if let Ok(_) = self.test_move(action) {
                     actions.push(action);
                 }
             }
@@ -759,60 +773,5 @@ impl Board {
             return true;
         };
         false
-    }
-}
-
-impl fmt::Display for Board {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut ends: Vec<Location> = Vec::new();
-        let mut selected = false;
-        if let Some(location) = self.selected {
-            ends = actions_to_ends(self.get_valid_actions(location));
-            selected = true;
-        }
-
-        let mut result = String::new();
-        let mut ch: char;
-
-        for row in (0..self.position.len()).rev() {
-            for col in 0..self.position[row].len() {
-                if selected && ends.contains(&Location { row, col }) {
-                    ch = 'x';
-                } else if let Some(piece) = self.position[row][col] {
-                    ch = match piece.color {
-                        Second => match piece.kind {
-                            Pawn => '♙',
-                            Rook => '♖',
-                            Knight => '♘',
-                            Bishop => '♗',
-                            Queen => '♕',
-                            King => '♔',
-                        },
-                        First => match piece.kind {
-                            Pawn => '♟',
-                            Rook => '♜',
-                            Knight => '♞',
-                            Bishop => '♝',
-                            Queen => '♛',
-                            King => '♚',
-                        },
-                    };
-                } else {
-                    // ch = match (row + col) % 2 {
-                    //     1 => '□',
-                    //     0 => '■',
-                    //     _ => 'x',
-                    // };
-                    ch = match 1 {
-                        1 => '□',
-                        0 => '■',
-                        _ => '?',
-                    };
-                }
-                result.push_str(&format!("{:<2}", ch));
-            }
-            result.push('\n');
-        }
-        write!(f, "{}", result)
     }
 }

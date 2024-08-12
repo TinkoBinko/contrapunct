@@ -49,7 +49,7 @@ async fn main() {
                     board.selected = Some(location);
                 } else {
                     let action = board.get_action_from_locations(board.selected.unwrap(), location);
-                    let result = board.make_move(action);
+                    let result = board.commit_move(action);
                     match result {
                         Ok(_) => (),
                         Err(error) => {
