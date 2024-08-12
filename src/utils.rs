@@ -29,7 +29,7 @@ pub enum ActionKind {
     Capture,
     EnPassant,
     Castling(CastlingKind),
-    Promotion,
+    Promotion(PieceKind),
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Location {
@@ -160,6 +160,23 @@ pub fn location_to_algebraic(location: Location) -> String {
     string
 }
 
+fn is_valid_promotion(
+    board: &Board,
+    size: usize,
+    start: Location,
+    end: Location,
+    color: PieceColor,
+) -> bool {
+    let size = board.size;
+    let dx = end.col as i8 - start.col as i8;
+    let dy = end.row as i8 - start.row as i8;
+    if is_valid_pawn_translation(size, start.row, dx, dy, color)
+        || is_valid_pawn_capture(board, size, start, end, color)
+    {
+        return true;
+    }
+    false
+}
 fn is_valid_en_passant(
     board: &Board,
     size: usize,
@@ -433,7 +450,12 @@ impl Board {
                 });
                 self.set_piece(start_piece, end);
             }
-            _ => panic!("Unknown move"),
+            Promotion(pkind) => {
+                self.clear_piece(start);
+                self.clear_piece(end);
+                let new_piece = Piece::new(pkind, self.turn);
+                self.set_piece(new_piece, end);
+            }
         };
 
         if self.turn == First {
@@ -634,7 +656,7 @@ impl Board {
                 return true;
             }
             EnPassant => return is_valid_en_passant(self, self.size, start, end, self.turn),
-            _ => {}
+            Promotion(_) => return is_valid_promotion(self, self.size, start, end, self.turn),
         }
 
         true
@@ -673,8 +695,8 @@ impl Board {
                     col: end.col,
                 };
                 let neighbor = self.get_piece_from_location(neighbor_location);
-                if start.row == last_row {
-                    kind = Promotion
+                if end.row == last_row {
+                    kind = Promotion(Queen);
                 } else if end_piece != None {
                     kind = Capture;
                 } else if neighbor != None && start.col.abs_diff(end.col) == 1 {
