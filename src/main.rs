@@ -34,7 +34,6 @@ async fn main() {
             highlight_square(&board, last_action.end).await;
         }
         draw_pieces(&board).await;
-
         if let Some(location) = board.selected {
             let actions = board.get_valid_actions(location);
             for action in actions {
@@ -42,10 +41,16 @@ async fn main() {
             }
         }
 
-        let location = get_mouse_input(&board);
-        match location {
-            Some(location) => {
-                if board.selected == None {
+        if let Some(location) = get_mouse_input(&board) {
+            let piece = board.get_piece_from_location(location);
+            if board.selected == None {
+                if let Some(piece) = piece {
+                    if piece.color == board.turn {
+                        board.selected = Some(location);
+                    }
+                }
+            } else {
+                if piece != None && piece.unwrap().color == board.turn {
                     board.selected = Some(location);
                 } else {
                     let action = board.get_action_from_locations(board.selected.unwrap(), location);
@@ -57,10 +62,9 @@ async fn main() {
                             board.selected = None;
                         }
                     }
-                };
-            }
-            None => {}
-        };
+                }
+            };
+        }
         next_frame().await;
     }
 }
