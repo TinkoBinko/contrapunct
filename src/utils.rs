@@ -1,3 +1,4 @@
+use rand::seq::SliceRandom;
 use std::fmt;
 use ActionKind::{Capture, Castling, EnPassant, Normal, Promotion};
 use CastlingKind::{Long, Short};
@@ -707,6 +708,25 @@ impl Board {
             }
         }
         actions
+    }
+    pub fn get_all_valid_actions(&mut self) -> Vec<Action> {
+        let mut actions = Vec::new();
+        for row in 0..self.size {
+            for col in 0..self.size {
+                let location = Location { row, col };
+                if let Some(piece) = self.get_piece_from_location(location) {
+                    if piece.color != self.turn {
+                        continue;
+                    }
+                    actions.extend(self.get_valid_actions(location));
+                }
+            }
+        }
+        actions
+    }
+    pub fn get_random_action(&mut self) -> Action {
+        let actions = self.get_all_valid_actions();
+        *actions.choose(&mut rand::thread_rng()).unwrap()
     }
     pub fn get_action_from_locations(&self, start: Location, end: Location) -> Action {
         let piece = self.get_piece_from_location(start);
