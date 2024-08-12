@@ -25,6 +25,7 @@ async fn main() {
     board.set_fen(&start_fen);
 
     loop {
+        // println!("Turn: {:?}", board.turn);
         draw_board(&board).await;
         draw_pieces(&board).await;
 
@@ -40,12 +41,9 @@ async fn main() {
                 if board.selected == None {
                     board.selected = Some(location);
                 } else {
-                    let action = board.make_move(Action {
-                        start: board.selected.unwrap(),
-                        end: location,
-                        kind: ActionKind::Normal,
-                    });
-                    match action {
+                    let action = board.get_action_from_locations(board.selected.unwrap(), location);
+                    let result = board.make_move(action);
+                    match result {
                         Ok(_) => (),
                         Err(error) => {
                             println!("Error: {:?}", error);

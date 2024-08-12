@@ -1,8 +1,14 @@
 use std::fmt;
 use ActionKind::{Capture, Castling, EnPassant, Normal, Promotion};
+use CastlingKind::{Long, Short};
 use PieceColor::{First, Second};
 use PieceKind::{Bishop, King, Knight, Pawn, Queen, Rook};
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CastlingKind {
+    Short,
+    Long,
+}
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PieceKind {
     Pawn,
@@ -18,16 +24,11 @@ pub enum PieceColor {
     Second,
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum CastlingKind {
-    LongCastling,
-    ShortCastling,
-}
-#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ActionKind {
     Normal,
     Capture,
-    Castling(CastlingKind),
     EnPassant,
+    Castling(CastlingKind),
     Promotion,
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -158,6 +159,39 @@ pub fn location_to_algebraic(location: Location) -> String {
     string
 }
 
+fn is_valid_en_passant(
+    board: &Board,
+    size: usize,
+    start: Location,
+    end: Location,
+    color: PieceColor,
+) -> bool {
+    let dx = end.col as i8 - start.col as i8;
+    let dy = end.row as i8 - start.row as i8;
+
+    let direction: i8 = if color == First { -1 } else { 1 };
+    let home_row = if direction == 1 { 1 } else { size - 2 };
+    let opposite_home_row = if direction == 1 { size - 2 } else { 1 };
+
+    if dx.abs() == 1 && dy == direction {
+        let end = Location {
+            row: (end.row as i8 - direction) as usize,
+            col: end.col,
+        };
+        if start.row as i8 != opposite_home_row as i8 - 2 * direction {
+            return false;
+        }
+        if let Some(p) = board.get_piece_from_location(end) {
+            if let Some(action) = board.last_action {
+                if p.color != color && action.end.row == start.row && action.end.col == end.col {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
 fn is_valid_pawn_capture(
     board: &Board,
     size: usize,
@@ -176,20 +210,6 @@ fn is_valid_pawn_capture(
         if let Some(p) = board.get_piece_from_location(end) {
             if p.color != color {
                 return true;
-            }
-        }
-        let end = Location {
-            row: end.row,
-            col: (end.col as i8 - direction) as usize,
-        };
-        if start.row as i8 != opposite_home_row as i8 - 2 * direction {
-            return false;
-        }
-        if let Some(p) = board.get_piece_from_location(end) {
-            if let Some(action) = board.last_action {
-                if p.color != color && action.end.row == start.row && action.end.col == end.col {
-                    return true;
-                }
             }
         }
     }
@@ -359,7 +379,59 @@ impl Board {
         }
 
         if !self.is_valid_action(action) {
+            println!("Invalid action");
             return Err(MoveError::InvalidAction);
+        };
+
+        match kind {
+            Normal => {
+                self.clear_piece(start);
+                self.clear_piece(end);
+                self.set_piece(start_piece, end);
+            }
+            Capture => {
+                self.clear_piece(start);
+                self.set_piece(start_piece, end);
+            }
+            Castling(ckind) => {
+                let direction: i8 = if self.turn == First { -1 } else { 1 };
+                let home_row = if direction == 1 { 0 } else { self.size - 1 };
+                println!("{home_row}");
+                let rook_col = if ckind == Long { 0 } else { self.size - 1 };
+
+                let king_location = Location {
+                    row: home_row,
+                    col: 4,
+                };
+                let king = self.get_piece_from_location(king_location).unwrap();
+                let dir: i8 = if ckind == Long { -1 } else { 1 };
+                let rook_location = Location {
+                    row: home_row,
+                    col: rook_col,
+                };
+                let rook = self.get_piece_from_location(rook_location).unwrap();
+                let new_king_location = Location {
+                    row: home_row,
+                    col: (4 + 2 * dir) as usize,
+                };
+                let new_rook_location = Location {
+                    row: home_row,
+                    col: (4 + dir) as usize,
+                };
+                self.clear_piece(king_location);
+                self.clear_piece(rook_location);
+                self.set_piece(king, new_king_location);
+                self.set_piece(rook, new_rook_location);
+            }
+            EnPassant => {
+                self.clear_piece(start);
+                self.clear_piece(Location {
+                    row: start.row,
+                    col: end.col,
+                });
+                self.set_piece(start_piece, end);
+            }
+            _ => panic!("Unknown move"),
         };
 
         if self.turn == First {
@@ -370,22 +442,11 @@ impl Board {
         self.selected = None;
         self.last_action = Some(action);
 
-        match kind {
-            Normal => {
-                self.clear_piece(start);
-                self.clear_piece(end);
-                self.set_piece(start_piece, end);
-            }
-            _ => panic!("Unknown move"),
-        };
         Ok(())
     }
 
     pub fn is_valid_translation(&self, action: Action) -> bool {
         let Action { start, end, kind } = action;
-        if kind != Normal {
-            panic!("Not a normal kind.")
-        };
 
         let piece = self.get_piece_from_location(start);
         if piece == None {
@@ -456,7 +517,6 @@ impl Board {
 
             if piece != None {
                 if !(col == end.col as i8 && row == end.row as i8) {
-                    // println!("Obstacle detected");
                     return true;
                 }
             }
@@ -483,6 +543,12 @@ impl Board {
 
         let end_piece = self.get_piece_from_location(end);
         let start_piece = self.get_piece_from_location(start);
+        if start_piece == None {
+            return false;
+        };
+        if start_piece.unwrap().color != self.turn {
+            return false;
+        }
 
         match kind {
             Normal => {
@@ -500,7 +566,11 @@ impl Board {
                 }
             }
             Capture => {
-                // if end_piece.color == start_piece.color { return false }
+                if let Some(end_piece) = end_piece {
+                    if end_piece.color == start_piece.unwrap().color {
+                        return false;
+                    }
+                }
                 if !self.is_valid_capture(action) {
                     return false;
                 }
@@ -508,7 +578,63 @@ impl Board {
                     return false;
                 }
             }
-            _ => (),
+            Castling(kind) => {
+                let direction: i8 = if self.turn == First { -1 } else { 1 };
+                let home_row = if direction == 1 { 0 } else { self.size - 1 };
+                // println!("Home row is: {home_row}");
+                let rook_col = if kind == Long { 0 } else { self.size - 1 };
+                if ![2, 6].contains(&end.col) {
+                    return false;
+                };
+                if start.row != home_row || end.row != home_row {
+                    return false;
+                }
+
+                let king_location = Location {
+                    row: home_row,
+                    col: 4,
+                };
+                let king = self.get_piece_from_location(king_location);
+                if let Some(king) = king {
+                    if king.kind != King || king.moved == true {
+                        println!("Wrong at king: {:?}", king.kind);
+                        return false;
+                    }
+                } else {
+                    println!("Nothing at king");
+                    return false;
+                }
+                let rook_location = Location {
+                    row: home_row,
+                    col: rook_col,
+                };
+                let rook = self.get_piece_from_location(rook_location);
+                if let Some(rook) = rook {
+                    if rook.kind != Rook || rook.moved == true {
+                        println!("Wrong at rook");
+                        return false;
+                    }
+                } else {
+                    println!("Nothing at rook");
+                    return false;
+                }
+
+                let start = if kind == Long { 1 } else { self.size - 3 };
+                let len = if kind == Long { 2 } else { 1 };
+                for i in start..=start + len {
+                    let location = Location {
+                        row: home_row,
+                        col: i,
+                    };
+                    if self.get_piece_from_location(location) != None {
+                        println!("Piece blocks at {:?}", location);
+                        return false;
+                    }
+                }
+                return true;
+            }
+            EnPassant => return is_valid_en_passant(self, self.size, start, end, self.turn),
+            _ => {}
         }
 
         true
@@ -519,17 +645,50 @@ impl Board {
         for row in 0..self.position.len() {
             for col in 0..self.position[row].len() {
                 let end = Location { row, col };
-                let action = Action {
-                    start,
-                    end,
-                    kind: Normal,
-                };
+                let action = self.get_action_from_locations(start, end);
                 if self.is_valid_action(action) {
                     actions.push(action);
                 }
             }
         }
         actions
+    }
+    pub fn get_action_from_locations(&self, start: Location, end: Location) -> Action {
+        let piece = self.get_piece_from_location(start);
+        let end_piece = self.get_piece_from_location(end);
+        let mut kind = Normal;
+
+        if let Some(piece) = piece {
+            if piece.kind == King && end.col.abs_diff(start.col) > 1 {
+                if end.col as isize - start.col as isize > 0 {
+                    // println!("Short found");
+                    kind = Castling(Short);
+                } else {
+                    // println!("Long found");
+                    kind = Castling(Long);
+                }
+            } else if piece.kind == Pawn {
+                let direction: i8 = if piece.color == First { -1 } else { 1 };
+                let last_row = if direction == 1 { self.size - 1 } else { 0 };
+                let neighbor_location = Location {
+                    row: start.row,
+                    col: end.col,
+                };
+                let neighbor = self.get_piece_from_location(neighbor_location);
+                if start.row == last_row {
+                    kind = Promotion
+                } else if end_piece != None {
+                    kind = Capture;
+                } else if neighbor != None && start.col.abs_diff(end.col) == 1 {
+                    kind = EnPassant;
+                } else {
+                    kind = Normal;
+                }
+            } else if end_piece != None && end_piece.unwrap().color != piece.color {
+                kind = Capture
+            }
+        }
+        Action { start, end, kind }
     }
 }
 
