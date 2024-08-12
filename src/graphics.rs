@@ -145,6 +145,22 @@ pub async fn circle_mark_square(board: &Board, location: Location) {
         color,
     );
 }
+pub async fn draw_check(board: &Board) {
+    if board.is_check(board.turn) {
+        let king = Piece::new(King, board.turn);
+        let king_location = board.get_location_from_piece(king).unwrap();
+
+        let Location { row, col } = king_location;
+        let square_size = f32::max(screen_width(), screen_height()) / board.size as f32;
+        draw_rectangle(
+            square_size * col as f32,
+            square_size * row as f32,
+            square_size,
+            square_size,
+            RED,
+        );
+    }
+}
 
 pub fn get_mouse_input(board: &Board) -> Option<Location> {
     let square_size = f32::max(screen_width(), screen_height()) / board.size as f32;

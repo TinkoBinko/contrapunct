@@ -3,7 +3,9 @@ use macroquad::prelude::*;
 mod graphics;
 mod utils;
 
-use graphics::{circle_mark_square, draw_board, draw_pieces, get_mouse_input, highlight_square};
+use graphics::{
+    circle_mark_square, draw_board, draw_check, draw_pieces, get_mouse_input, highlight_square,
+};
 use utils::{
     actions_to_algebraic_ends, algebraic_to_action, algebraic_to_location, location_to_algebraic,
 };
@@ -26,6 +28,7 @@ async fn main() {
 
     loop {
         draw_board(&board).await;
+        draw_check(&board).await;
         if let Some(last_action) = board.last_action {
             highlight_square(&board, last_action.start).await;
             highlight_square(&board, last_action.end).await;
@@ -38,6 +41,7 @@ async fn main() {
                 circle_mark_square(&board, action.end).await;
             }
         }
+
         let location = get_mouse_input(&board);
         match location {
             Some(location) => {

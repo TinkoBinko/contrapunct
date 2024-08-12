@@ -52,6 +52,7 @@ pub struct Piece {
 pub struct Board {
     pub size: usize,
     pub position: Vec<Vec<Option<Piece>>>,
+    pub previous_position: Vec<Vec<Option<Piece>>>,
     pub turn: PieceColor,
     pub selected: Option<Location>,
     pub last_action: Option<Action>,
@@ -65,6 +66,7 @@ pub enum MoveError {
     InvalidAction,
     StartSquareEmpty,
     InvalidPieceColor,
+    RemainsInCheck,
 }
 
 pub fn opposite_color(color: PieceColor) -> PieceColor {
@@ -313,6 +315,7 @@ impl Board {
         Board {
             size,
             position: vec![vec![None; size]; size],
+            previous_position: vec![vec![None; size]; size],
             turn: First,
             selected: None,
             last_action: None,
@@ -321,6 +324,7 @@ impl Board {
     }
     pub fn clear(&mut self) {
         self.position = vec![vec![None; self.size]; self.size];
+        self.previous_position = self.position.clone();
     }
     pub fn set_piece(&mut self, piece: Piece, location: Location) {
         let Location { row, col } = location;
@@ -362,6 +366,7 @@ impl Board {
                 }
             };
         }
+        self.previous_position = self.position.clone();
     }
 
     pub fn get_piece_from_location(&self, location: Location) -> Option<Piece> {
@@ -408,6 +413,10 @@ impl Board {
             println!("Invalid action");
             return Err(MoveError::InvalidAction);
         };
+
+        // let previous_position = self.previous_position.clone();
+        // self.previous_position = self.position.clone();
+        let current_position = self.position.clone();
 
         match kind {
             Normal => {
@@ -464,6 +473,10 @@ impl Board {
             }
         };
 
+        if self.is_check(self.turn) {
+            self.position = current_position;
+            return Err(MoveError::RemainsInCheck);
+        }
         self.turn = opposite_color(self.turn);
         self.selected = None;
         if let Some(last_action) = self.last_action {
@@ -727,7 +740,9 @@ impl Board {
                         end,
                         kind: Capture,
                     };
-                    if self.is_valid_capture(action) {
+                    if self.is_valid_capture(action)
+                        && !self.is_path_blocked(action.start, action.end)
+                    {
                         return true;
                     }
                 }
@@ -740,6 +755,7 @@ impl Board {
         let king_location = self.get_location_from_piece(king).unwrap();
 
         if self.is_square_attacked(king_location, opposite_color(self.turn)) {
+            // println!("yes");
             return true;
         };
         false
