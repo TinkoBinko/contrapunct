@@ -1,15 +1,9 @@
-#![allow(dead_code, unused_variables, unused_imports)]
 use macroquad::prelude::*;
 mod graphics;
 mod utils;
 
-use graphics::{
-    circle_mark_square, draw_board, draw_check, draw_pieces, get_mouse_input, highlight_square,
-};
-use utils::{
-    actions_to_algebraic_ends, algebraic_to_action, algebraic_to_location, location_to_algebraic,
-};
-use utils::{Action, ActionKind, Board, Location, MoveError, Piece, PieceColor, PieceKind};
+use graphics::*;
+use utils::*;
 
 fn window_conf() -> Conf {
     Conf {
@@ -21,6 +15,9 @@ fn window_conf() -> Conf {
 }
 #[macroquad::main(window_conf)]
 async fn main() {
+    let players = ['h', 'e'];
+    let mut current_player = 0;
+
     let mut board = Board::new(8);
 
     let start_fen = String::from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
@@ -41,30 +38,40 @@ async fn main() {
             }
         }
 
-        if let Some(location) = get_mouse_input(&board) {
-            let piece = board.get_piece_from_location(location);
-            if board.selected == None {
-                if let Some(piece) = piece {
-                    if piece.color == board.turn {
-                        board.selected = Some(location);
-                    }
-                }
-            } else {
-                if piece != None && piece.unwrap().color == board.turn {
-                    board.selected = Some(location);
-                } else {
-                    let action = board.get_action_from_locations(board.selected.unwrap(), location);
-                    let result = board.commit_move(action);
-                    match result {
-                        Ok(_) => (),
-                        Err(error) => {
-                            println!("Error: {:?}", error);
-                            board.selected = None;
+        if players[current_player] == 'e' {
+            let action = board.get_random_action();
+            let result = board.commit_move(action);
+            match result {
+                Err(error) => panic!("{:?}", error),
+                Ok(_) => current_player = (current_player + 1) % 2,
+            };
+        } else {
+            if let Some(location) = get_mouse_input(&board) {
+                let piece = board.get_piece_from_location(location);
+                if board.selected == None {
+                    if let Some(piece) = piece {
+                        if piece.color == board.turn {
+                            board.selected = Some(location);
                         }
                     }
-                }
-            };
+                } else {
+                    if piece != None && piece.unwrap().color == board.turn {
+                        board.selected = Some(location);
+                    } else {
+                        let action =
+                            board.get_action_from_locations(board.selected.unwrap(), location);
+                        let result = board.commit_move(action);
+                        match result {
+                            Ok(_) => current_player = (current_player + 1) % 2,
+                            Err(error) => {
+                                println!("Error: {:?}", error);
+                                board.selected = None;
+                            }
+                        }
+                    }
+                };
+            }
+            next_frame().await;
         }
-        next_frame().await;
     }
 }
