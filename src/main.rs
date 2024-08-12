@@ -11,8 +11,8 @@ use utils::{Action, ActionKind, Board, Location, MoveError, Piece, PieceColor, P
 
 fn window_conf() -> Conf {
     Conf {
-        window_width: 600,
-        window_height: 600,
+        window_width: 1000,
+        window_height: 1000,
         fullscreen: false,
         ..Default::default()
     }

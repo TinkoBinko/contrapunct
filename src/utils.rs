@@ -67,6 +67,13 @@ pub enum MoveError {
     InvalidPieceColor,
 }
 
+pub fn opposite_color(color: PieceColor) -> PieceColor {
+    if color == First {
+        Second
+    } else {
+        First
+    }
+}
 pub fn sign_of_i8(num: i8) -> i8 {
     if num > 0 {
         return 1;
@@ -393,7 +400,7 @@ impl Board {
         let end_piece = self.position[end.row][end.col];
 
         if self.turn != start_piece.color {
-            println!("Nope, {:?}", self.turn);
+            println!("It's {:?}'s turn", self.turn);
             return Err(MoveError::InvalidPieceColor);
         }
 
@@ -415,7 +422,6 @@ impl Board {
             Castling(ckind) => {
                 let direction: i8 = if self.turn == First { -1 } else { 1 };
                 let home_row = if direction == 1 { 0 } else { self.size - 1 };
-                println!("{home_row}");
                 let rook_col = if ckind == Long { 0 } else { self.size - 1 };
 
                 let king_location = Location {
@@ -458,16 +464,13 @@ impl Board {
             }
         };
 
-        if self.turn == First {
-            self.turn = Second
-        } else {
-            self.turn = First
-        };
+        self.turn = opposite_color(self.turn);
         self.selected = None;
         if let Some(last_action) = self.last_action {
             self.action_list.push(last_action);
         }
         self.last_action = Some(action);
+        println!("{}", self.is_check(self.turn));
         // print!("{:?} ", self.action_list);
 
         Ok(())
@@ -709,6 +712,37 @@ impl Board {
             }
         }
         Action { start, end, kind }
+    }
+
+    pub fn is_square_attacked(&self, end: Location, color: PieceColor) -> bool {
+        for row in 0..self.size {
+            for col in 0..self.size {
+                let start = Location { row, col };
+                if let Some(piece) = self.get_piece_from_location(start) {
+                    if piece.color != color {
+                        continue;
+                    }
+                    let action = Action {
+                        start,
+                        end,
+                        kind: Capture,
+                    };
+                    if self.is_valid_capture(action) {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+    pub fn is_check(&self, color: PieceColor) -> bool {
+        let king = Piece::new(King, color);
+        let king_location = self.get_location_from_piece(king).unwrap();
+
+        if self.is_square_attacked(king_location, opposite_color(self.turn)) {
+            return true;
+        };
+        false
     }
 }
 

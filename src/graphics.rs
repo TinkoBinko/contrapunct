@@ -151,7 +151,6 @@ pub fn get_mouse_input(board: &Board) -> Option<Location> {
     if is_mouse_button_pressed(MouseButton::Left) {
         let col = (mouse_position().0 / square_size) as usize;
         let row = (mouse_position().1 / square_size) as usize;
-        println!("{}, {}", row, col);
         return Some(Location { row, col });
     }
     None
