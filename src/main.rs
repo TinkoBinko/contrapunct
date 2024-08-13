@@ -15,7 +15,7 @@ fn window_conf() -> Conf {
 }
 #[macroquad::main(window_conf)]
 async fn main() {
-    let players = ['h', 'e'];
+    let players = ['e', 'e'];
     let mut current_player = 0;
 
     let mut board = Board::new(8);
@@ -23,7 +23,9 @@ async fn main() {
     let start_fen = String::from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
     board.set_fen(&start_fen);
 
+    let mut timer = 200;
     loop {
+        timer -= 1;
         draw_board(&board).await;
         draw_check(&board).await;
         if let Some(last_action) = board.last_action {
@@ -39,12 +41,16 @@ async fn main() {
         }
 
         if players[current_player] == 'e' {
-            let action = board.get_random_action();
-            let result = board.commit_move(action);
-            match result {
-                Err(error) => panic!("{:?}", error),
-                Ok(_) => current_player = (current_player + 1) % 2,
-            };
+            if timer < 0 {
+                timer = 200;
+                let action = board.get_random_action();
+                let result = board.commit_move(action);
+                println!("Move");
+                match result {
+                    Err(error) => panic!("{:?}", error),
+                    Ok(_) => current_player = (current_player + 1) % 2,
+                };
+            }
         } else {
             if let Some(location) = get_mouse_input(&board) {
                 let piece = board.get_piece_from_location(location);
@@ -71,7 +77,7 @@ async fn main() {
                     }
                 };
             }
-            next_frame().await;
         }
+        next_frame().await;
     }
 }
