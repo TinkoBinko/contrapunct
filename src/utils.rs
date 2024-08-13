@@ -797,4 +797,13 @@ impl Board {
         };
         false
     }
+    pub fn is_moveless(&mut self) -> bool {
+        let valid_actions = self.get_all_valid_actions();
+        let length = valid_actions.len();
+        // println!("No. of moves: {length}");
+        length == 0
+    }
+    pub fn is_checkmate(&mut self) -> bool {
+        self.is_check(self.turn) && self.is_moveless()
+    }
 }
