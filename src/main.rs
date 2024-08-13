@@ -15,13 +15,13 @@ fn window_conf() -> Conf {
 }
 #[macroquad::main(window_conf)]
 async fn main() {
-    let players = ['h', 'e'];
+    let players = ['h', 'h'];
     let mut current_player = 0;
 
     let mut board = Board::new(8);
 
     let start_fen = String::from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
-    let start_fen = String::from("k7/8/8/8/8/8/8/3QKB2");
+    // let start_fen = String::from("k7/8/8/8/8/8/8/3QKB2");
     board.set_fen(&start_fen);
 
     let mut timer = 200;

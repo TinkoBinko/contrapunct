@@ -683,7 +683,9 @@ impl Board {
                         row: home_row,
                         col: i,
                     };
-                    if self.get_piece_from_location(location) != None {
+                    if self.get_piece_from_location(location) != None
+                        || (self.is_square_attacked(location, opposite_color(self.turn)) && i != 1)
+                    {
                         return false;
                     }
                 }
