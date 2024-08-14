@@ -1,4 +1,5 @@
 use macroquad::prelude::*;
+mod engine;
 mod graphics;
 mod utils;
 
@@ -15,17 +16,26 @@ fn window_conf() -> Conf {
 }
 #[macroquad::main(window_conf)]
 async fn main() {
-    let players = ['h', 'h'];
+    let players = ['h', 'e'];
     let mut current_player = 0;
 
     let mut board = Board::new(8);
 
     let start_fen = String::from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
-    // let start_fen = String::from("k7/8/8/8/8/8/8/3QKB2");
+    let start_fen = String::from("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R");
+    // let start_fen = String::from("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1");
     board.set_fen(&start_fen);
 
     let mut timer = 200;
     loop {
+        let node = TreeNode {
+            board: board.clone(),
+            children: Vec::new(),
+        };
+        let tree = board.get_position_tree(3);
+        // println!("{}", count_tree_nodes(&tree) - 1);
+        println!("{}", count_last_layer(&tree));
+
         timer -= 1;
         draw_board(&board).await;
         draw_check(&board).await;
@@ -76,7 +86,7 @@ async fn main() {
                             let result = board.commit_move(action);
                             match result {
                                 Ok(_) => {
-                                    println!("ok");
+                                    // println!("ok");
                                     current_player = (current_player + 1) % 2;
                                 }
                                 Err(error) => {

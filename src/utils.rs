@@ -1,9 +1,8 @@
 use rand::seq::SliceRandom;
-use std::fmt;
-use ActionKind::{Capture, Castling, EnPassant, Normal, Promotion};
-use CastlingKind::{Long, Short};
-use PieceColor::{First, Second};
-use PieceKind::{Bishop, King, Knight, Pawn, Queen, Rook};
+use ActionKind::*;
+use CastlingKind::*;
+use PieceColor::*;
+use PieceKind::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CastlingKind {
@@ -32,6 +31,11 @@ pub enum ActionKind {
     Castling(CastlingKind),
     Promotion(PieceKind),
 }
+#[derive(Debug)]
+pub struct TreeNode {
+    pub board: Board,
+    pub children: Vec<TreeNode>,
+}
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Location {
     pub row: usize,
@@ -51,7 +55,7 @@ pub struct Piece {
 }
 type Position = Vec<Vec<Option<Piece>>>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Board {
     pub size: usize,
     pub position: Position,
@@ -80,27 +84,21 @@ pub fn opposite_color(color: PieceColor) -> PieceColor {
 }
 pub fn sign_of_i8(num: i8) -> i8 {
     if num > 0 {
-        return 1;
+        1
     } else if num < 0 {
-        return -1;
+        -1
     } else {
-        return 0;
+        0
     }
 }
 pub fn actions_to_ends(actions: Vec<Action>) -> Vec<Location> {
-    let mut locations = Vec::new();
-    for action in actions.iter() {
-        locations.push(action.end);
-    }
-    locations
+    actions.iter().map(|action| action.end).collect()
 }
 pub fn actions_to_algebraic_ends(actions: Vec<Action>) -> Vec<String> {
-    let mut algebraics = Vec::new();
-    let ends = actions_to_ends(actions);
-    for end in ends.iter() {
-        algebraics.push(location_to_algebraic(*end));
-    }
-    algebraics
+    actions_to_ends(actions)
+        .iter()
+        .map(|end| location_to_algebraic(*end))
+        .collect()
 }
 pub fn algebraic_to_action(input: String) -> Action {
     let input = input.trim();
@@ -134,7 +132,6 @@ pub fn algebraic_to_action(input: String) -> Action {
 
     Action { start, end, kind }
 }
-//
 pub fn algebraic_to_location(input: String) -> Result<Location, MoveError> {
     let input = input.trim();
     if input.len() != 2 {
@@ -171,13 +168,25 @@ pub fn location_to_algebraic(location: Location) -> String {
     string
 }
 
-fn is_valid_promotion(
-    board: &Board,
-    size: usize,
-    start: Location,
-    end: Location,
-    color: PieceColor,
-) -> bool {
+pub fn count_last_layer(node: &TreeNode) -> usize {
+    let mut sum = 0;
+    for child in node.children.iter() {
+        if child.children.is_empty() {
+            sum += 1;
+        }
+        sum += count_last_layer(child);
+    }
+    sum
+}
+pub fn count_tree_nodes(node: &TreeNode) -> usize {
+    let mut sum = 1;
+    for child in node.children.iter() {
+        sum += count_tree_nodes(child);
+    }
+    sum
+}
+
+fn is_valid_promotion(board: &Board, start: Location, end: Location, color: PieceColor) -> bool {
     let size = board.size;
     let dx = end.col as i8 - start.col as i8;
     let dy = end.row as i8 - start.row as i8;
@@ -405,7 +414,6 @@ impl Board {
             self.action_list.push(last_action);
         }
         self.last_action = Some(action);
-        // println!("{}", self.is_check(self.turn));
         self.turn = opposite_color(self.turn);
         self.selected = None;
         Ok(())
@@ -413,7 +421,6 @@ impl Board {
     pub fn make_move(&mut self, action: Action) {
         let Action { start, end, kind } = action;
         let start_piece = self.get_piece_from_location(start);
-        let end_piece = self.get_piece_from_location(end);
 
         if let Some(mut start_piece) = start_piece {
             start_piece.moved = true;
@@ -692,7 +699,7 @@ impl Board {
                 return true;
             }
             EnPassant => return is_valid_en_passant(self, self.size, start, end, self.turn),
-            Promotion(_) => return is_valid_promotion(self, self.size, start, end, self.turn),
+            Promotion(_) => return is_valid_promotion(self, start, end, self.turn),
         }
 
         true
@@ -766,6 +773,9 @@ impl Board {
         Action { start, end, kind }
     }
 
+    pub fn count_valid_actions(&mut self) -> usize {
+        self.get_all_valid_actions().len()
+    }
     pub fn is_square_attacked(&self, end: Location, color: PieceColor) -> bool {
         for row in 0..self.size {
             for col in 0..self.size {
@@ -800,12 +810,42 @@ impl Board {
         false
     }
     pub fn is_moveless(&mut self) -> bool {
-        let valid_actions = self.get_all_valid_actions();
-        let length = valid_actions.len();
-        // println!("No. of moves: {length}");
-        length == 0
+        self.count_valid_actions() == 0
     }
     pub fn is_checkmate(&mut self) -> bool {
         self.is_check(self.turn) && self.is_moveless()
+    }
+
+    pub fn get_next_boards(&self) -> Vec<Board> {
+        let mut boards = Vec::new();
+        let mut board = self.clone();
+        let actions = board.get_all_valid_actions();
+        // println!("No of valid actions: {}", actions.len());
+        for action in actions.iter() {
+            let mut board = self.clone();
+            let _ = board.commit_move(*action);
+            boards.push(board);
+        }
+        boards
+    }
+    pub fn get_position_tree(&self, depth: usize) -> TreeNode {
+        fn build_tree(board: Board, current_depth: usize, max_depth: usize) -> TreeNode {
+            if current_depth >= max_depth {
+                return TreeNode {
+                    board,
+                    children: Vec::new(),
+                };
+            }
+
+            let mut children = Vec::new();
+            let next_boards = board.get_next_boards();
+            for board in next_boards {
+                let child_node = build_tree(board, current_depth + 1, max_depth);
+                children.push(child_node);
+            }
+            TreeNode { board, children }
+        }
+
+        build_tree(self.clone(), 0, depth)
     }
 }
