@@ -4,7 +4,7 @@ mod graphics;
 #[allow(unused_variables, dead_code)]
 mod utils;
 
-use engine::get_minimax_action;
+use engine::*;
 use graphics::*;
 use utils::*;
 
@@ -18,7 +18,10 @@ fn window_conf() -> Conf {
 }
 #[macroquad::main(window_conf)]
 async fn main() {
-    let players = ['h', 'e'];
+    let players = [
+        Player::new(PlayerKind::Random, 0),
+        Player::new(PlayerKind::Minimax, 3),
+    ];
     let mut current_player = 0;
 
     let mut board = Board::new(8);
@@ -30,9 +33,9 @@ async fn main() {
 
     let mut timer = 200;
     loop {
-        let mut tree = board.get_position_tree(1);
-        update_tree(&mut tree);
-        println!("{:.2}", tree.value);
+        // let mut tree = board.get_position_tree(3);
+        // update_tree(&mut tree);
+        // println!("{:.2}", tree.value);
 
         timer -= 1;
         draw_board(&board).await;
@@ -42,6 +45,7 @@ async fn main() {
             highlight_square(&board, last_action.end).await;
         }
         draw_pieces(&board).await;
+
         if board.is_moveless() {
             if board.is_check(board.turn) {
                 println!("Game over. {:?} wins", opposite_color(board.turn));
@@ -56,45 +60,47 @@ async fn main() {
                 }
             }
 
-            if players[current_player] == 'e' {
-                if timer < 0 {
-                    timer = 200;
-                    let action = board.get_random_action();
-                    let action = get_minimax_action(&board, 2);
-                    let result = board.commit_move(action);
-                    match result {
-                        Err(error) => panic!("{:?}", error),
-                        Ok(_) => current_player = (current_player + 1) % 2,
-                    };
-                }
-            } else {
-                if let Some(location) = get_mouse_input(&board) {
-                    let piece = board.get_piece_from_location(location);
-                    if board.selected == None {
-                        if let Some(piece) = piece {
-                            if piece.color == board.turn {
-                                board.selected = Some(location);
+            match &players[current_player].kind {
+                PlayerKind::Human => {
+                    if let Some(location) = get_mouse_input(&board) {
+                        let piece = board.get_piece_from_location(location);
+                        if board.selected == None {
+                            if let Some(piece) = piece {
+                                if piece.color == board.turn {
+                                    board.selected = Some(location);
+                                }
                             }
-                        }
-                    } else {
-                        if piece != None && piece.unwrap().color == board.turn {
-                            board.selected = Some(location);
                         } else {
-                            let action =
-                                board.get_action_from_locations(board.selected.unwrap(), location);
-                            let result = board.commit_move(action);
-                            match result {
-                                Ok(_) => {
-                                    // println!("ok");
-                                    current_player = (current_player + 1) % 2;
+                            if piece != None && piece.unwrap().color == board.turn {
+                                board.selected = Some(location);
+                            } else {
+                                let action = board
+                                    .get_action_from_locations(board.selected.unwrap(), location);
+                                let result = board.commit_move(action);
+                                match result {
+                                    Ok(_) => {
+                                        // println!("ok");
+                                        current_player = (current_player + 1) % 2;
+                                    }
+                                    Err(error) => {
+                                        println!("Error: {:?}", error);
+                                    }
                                 }
-                                Err(error) => {
-                                    println!("Error: {:?}", error);
-                                }
+                                board.selected = None;
                             }
-                            board.selected = None;
-                        }
-                    };
+                        };
+                    }
+                }
+                _ => {
+                    if timer < 0 {
+                        timer = 200;
+                        let action = players[current_player].get_action(&mut board);
+                        let result = board.commit_move(action);
+                        match result {
+                            Err(error) => panic!("{:?}", error),
+                            Ok(_) => current_player = (current_player + 1) % 2,
+                        };
+                    }
                 }
             }
         }

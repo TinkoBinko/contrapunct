@@ -1,13 +1,26 @@
 use crate::utils::*;
 use rand::seq::SliceRandom;
-use EngineKind::*;
 
-pub enum EngineKind {
+pub struct Player {
+    pub kind: PlayerKind,
+    pub depth: usize,
+}
+pub enum PlayerKind {
+    Human,
     Random,
     Minimax,
 }
-pub struct Engine {
-    kind: EngineKind,
+impl Player {
+    pub fn new(kind: PlayerKind, depth: usize) -> Self {
+        Player { kind, depth }
+    }
+    pub fn get_action(&self, board: &mut Board) -> Action {
+        match self.kind {
+            PlayerKind::Random => board.get_random_action(),
+            PlayerKind::Minimax => get_minimax_action(board, self.depth),
+            _ => panic!("Human wants move"),
+        }
+    }
 }
 
 pub fn get_minimax_actions(board: &Board, depth: usize) -> Vec<Action> {
