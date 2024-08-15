@@ -208,12 +208,21 @@ pub fn update_tree(node: &mut TreeNode) {
     } else {
         f64::INFINITY
     };
+    let checkmate_worth = if node.board.turn == First {
+        -f64::INFINITY
+    } else {
+        f64::INFINITY
+    };
     for child in node.children.iter_mut() {
         update_tree(child);
         best = func(best, child.value);
     }
     if node.children.is_empty() {
-        node.value = node.board.get_material_difference();
+        if node.board.is_checkmate() {
+            node.value = checkmate_worth;
+        } else {
+            node.value = node.board.get_material_difference();
+        }
     } else {
         node.value = best;
     }

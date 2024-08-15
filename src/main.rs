@@ -19,7 +19,7 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     let players = [
-        Player::new(PlayerKind::Random, 0),
+        Player::new(PlayerKind::Random, 3),
         Player::new(PlayerKind::Minimax, 3),
     ];
     let mut current_player = 0;
@@ -31,13 +31,14 @@ async fn main() {
     // let start_fen = String::from("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1");
     board.set_fen(&start_fen);
 
-    let mut timer = 200;
+    let max_timer = 0;
+    let mut timer = max_timer;
     loop {
         // let mut tree = board.get_position_tree(3);
         // update_tree(&mut tree);
         // println!("{:.2}", tree.value);
 
-        timer -= 1;
+        // timer -= 1;
         draw_board(&board).await;
         draw_check(&board).await;
         if let Some(last_action) = board.last_action {
@@ -92,8 +93,8 @@ async fn main() {
                     }
                 }
                 _ => {
-                    if timer < 0 {
-                        timer = 200;
+                    if timer == 0 {
+                        // timer = max_timer;
                         let action = players[current_player].get_action(&mut board);
                         let result = board.commit_move(action);
                         match result {
