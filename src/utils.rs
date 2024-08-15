@@ -34,6 +34,8 @@ pub enum ActionKind {
 #[derive(Debug)]
 pub struct TreeNode {
     pub board: Board,
+    pub action: Option<Action>,
+    pub value: f64,
     pub children: Vec<TreeNode>,
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -75,6 +77,16 @@ pub enum MoveError {
     RemainsInCheck,
 }
 
+pub fn get_piece_kind_worth(kind: PieceKind) -> f64 {
+    match kind {
+        Pawn => 1.,
+        Rook => 5.25,
+        Knight => 3.45,
+        Bishop => 3.55,
+        Queen => 10.,
+        King => 4.,
+    }
+}
 pub fn opposite_color(color: PieceColor) -> PieceColor {
     if color == First {
         Second
@@ -185,6 +197,27 @@ pub fn count_tree_nodes(node: &TreeNode) -> usize {
     }
     sum
 }
+pub fn update_tree(node: &mut TreeNode) {
+    let func = if node.board.turn == First {
+        f64::max
+    } else {
+        f64::min
+    };
+    let mut best = if node.board.turn == First {
+        -f64::INFINITY
+    } else {
+        f64::INFINITY
+    };
+    for child in node.children.iter_mut() {
+        update_tree(child);
+        best = func(best, child.value);
+    }
+    if node.children.is_empty() {
+        node.value = node.board.get_material_difference();
+    } else {
+        node.value = best;
+    }
+}
 
 fn is_valid_promotion(board: &Board, start: Location, end: Location, color: PieceColor) -> bool {
     let size = board.size;
@@ -208,7 +241,7 @@ fn is_valid_en_passant(
     let dy = end.row as i8 - start.row as i8;
 
     let direction: i8 = if color == First { -1 } else { 1 };
-    let home_row = if direction == 1 { 1 } else { size - 2 };
+    // let home_row = if direction == 1 { 1 } else { size - 2 };
     let opposite_home_row = if direction == 1 { size - 2 } else { 1 };
 
     if dx.abs() == 1 && dy == direction {
@@ -241,8 +274,8 @@ fn is_valid_pawn_capture(
     let dy = end.row as i8 - start.row as i8;
 
     let direction: i8 = if color == First { -1 } else { 1 };
-    let home_row = if direction == 1 { 1 } else { size - 2 };
-    let opposite_home_row = if direction == 1 { size - 2 } else { 1 };
+    // let home_row = if direction == 1 { 1 } else { size - 2 };
+    // let opposite_home_row = if direction == 1 { size - 2 } else { 1 };
 
     if dx.abs() == 1 && dy == direction {
         if let Some(p) = board.get_piece_from_location(end) {
@@ -489,7 +522,7 @@ impl Board {
             return Err(MoveError::StartSquareEmpty);
         }
         let start_piece = start_piece.unwrap();
-        let end_piece = self.get_piece_from_location(end);
+        // let end_piece = self.get_piece_from_location(end);
 
         if self.turn != start_piece.color {
             // println!("It's {:?}'s turn", self.turn);
@@ -772,10 +805,27 @@ impl Board {
         }
         Action { start, end, kind }
     }
+    pub fn get_material(&self, color: PieceColor) -> f64 {
+        let mut total = 0.;
+        for row in 0..self.size {
+            for col in 0..self.size {
+                if let Some(piece) = self.position[row][col] {
+                    if piece.color == color {
+                        total += get_piece_kind_worth(piece.kind);
+                    }
+                }
+            }
+        }
+        total
+    }
+    pub fn get_material_difference(&self) -> f64 {
+        self.get_material(First) - self.get_material(Second)
+    }
 
     pub fn count_valid_actions(&mut self) -> usize {
         self.get_all_valid_actions().len()
     }
+
     pub fn is_square_attacked(&self, end: Location, color: PieceColor) -> bool {
         for row in 0..self.size {
             for col in 0..self.size {
@@ -816,36 +866,48 @@ impl Board {
         self.is_check(self.turn) && self.is_moveless()
     }
 
-    pub fn get_next_boards(&self) -> Vec<Board> {
-        let mut boards = Vec::new();
+    pub fn get_next_actions_and_boards(&self) -> Vec<(Action, Board)> {
+        let mut boards_and_actions = Vec::new();
         let mut board = self.clone();
         let actions = board.get_all_valid_actions();
-        // println!("No of valid actions: {}", actions.len());
         for action in actions.iter() {
             let mut board = self.clone();
             let _ = board.commit_move(*action);
-            boards.push(board);
+            boards_and_actions.push((*action, board));
         }
-        boards
+        boards_and_actions
     }
     pub fn get_position_tree(&self, depth: usize) -> TreeNode {
-        fn build_tree(board: Board, current_depth: usize, max_depth: usize) -> TreeNode {
+        fn build_tree(
+            board: Board,
+            action: Option<Action>,
+            current_depth: usize,
+            max_depth: usize,
+        ) -> TreeNode {
             if current_depth >= max_depth {
                 return TreeNode {
                     board,
+                    action,
+                    value: 0.,
                     children: Vec::new(),
                 };
             }
 
             let mut children = Vec::new();
-            let next_boards = board.get_next_boards();
-            for board in next_boards {
-                let child_node = build_tree(board, current_depth + 1, max_depth);
+            let next_actions_and_boards = board.get_next_actions_and_boards();
+            for (action, board) in next_actions_and_boards.iter() {
+                let child_node =
+                    build_tree(board.clone(), Some(*action), current_depth + 1, max_depth);
                 children.push(child_node);
             }
-            TreeNode { board, children }
+            TreeNode {
+                board,
+                action,
+                value: 0.,
+                children,
+            }
         }
 
-        build_tree(self.clone(), 0, depth)
+        build_tree(self.clone(), self.last_action, 0, depth)
     }
 }
