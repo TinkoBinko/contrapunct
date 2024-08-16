@@ -19,7 +19,7 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     let players = [
-        Player::new(PlayerKind::Random, 0),
+        Player::new(PlayerKind::Pruning, 2),
         Player::new(PlayerKind::Pruning, 3),
     ];
     let mut current_player = 0;

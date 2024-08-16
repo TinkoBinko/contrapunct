@@ -61,7 +61,7 @@ pub fn get_minimax_action(board: &Board, depth: usize) -> Action {
 }
 
 pub fn get_alpha_beta_action(board: &Board, depth: usize) -> Action {
-    let mut board = board.clone();
+    let mut cloned_board = board.clone();
     println!("Turn: {:?}", board.turn);
     fn alpha_beta(board: &mut Board, depth: usize, alpha: f64, beta: f64) -> (Option<Action>, f64) {
         let checkmate_worth = if board.turn == First {
@@ -70,19 +70,21 @@ pub fn get_alpha_beta_action(board: &Board, depth: usize) -> Action {
             f64::INFINITY
         };
 
-        if depth == 0 || board.is_checkmate() {
-            let value = if board.is_checkmate() {
-                checkmate_worth
-            } else {
-                board.get_material_difference()
-            };
-            return (board.last_action, value);
+        if board.is_checkmate() {
+            return (board.last_action, checkmate_worth);
+        }
+        if board.is_moveless() {
+            return (board.last_action, 0.);
+        }
+        if depth == 0 {
+            return (board.last_action, board.get_material_difference());
         }
 
         let mut alpha = alpha;
         let mut beta = beta;
 
         let mut actions: Vec<Action> = Vec::new();
+        let mut best_action = None;
         let mut best_value = if board.turn == First {
             -f64::INFINITY
         } else {
@@ -90,17 +92,20 @@ pub fn get_alpha_beta_action(board: &Board, depth: usize) -> Action {
         };
         let mut next_boards = board.get_next_boards();
         for next_board in next_boards.iter_mut() {
+            assert_ne!(next_board.turn, board.turn);
             let (_, value) = alpha_beta(next_board, depth - 1, alpha, beta);
+
             if board.turn == First {
                 if value >= best_value {
                     if value > best_value {
                         actions = Vec::new();
                     }
+                    best_action = next_board.last_action;
                     best_value = value;
                     actions.push(next_board.last_action.unwrap());
                 }
                 alpha = f64::max(alpha, best_value);
-                if alpha >= beta {
+                if beta <= alpha {
                     break;
                 }
             } else {
@@ -108,6 +113,7 @@ pub fn get_alpha_beta_action(board: &Board, depth: usize) -> Action {
                     if value < best_value {
                         actions = Vec::new();
                     }
+                    best_action = next_board.last_action;
                     best_value = value;
                     actions.push(next_board.last_action.unwrap());
                 }
@@ -118,11 +124,12 @@ pub fn get_alpha_beta_action(board: &Board, depth: usize) -> Action {
             }
         }
         (actions.choose(&mut rand::thread_rng()).cloned(), best_value)
+        // (best_action, best_value)
     }
 
     let alpha = -f64::INFINITY;
     let beta = f64::INFINITY;
-    let (action, ab) = alpha_beta(&mut board, depth, alpha, beta);
+    let (action, ab) = alpha_beta(&mut cloned_board, depth, alpha, beta);
 
     if let Some(action) = action {
         println!("{:.2}", ab);
