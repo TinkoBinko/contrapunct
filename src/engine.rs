@@ -84,7 +84,7 @@ pub fn get_alpha_beta_action(board: &Board, depth: usize) -> Action {
         let mut beta = beta;
 
         let mut actions: Vec<Action> = Vec::new();
-        let mut best_action = None;
+        // let mut best_action = None;
         let mut best_value = if board.turn == First {
             -f64::INFINITY
         } else {
@@ -100,7 +100,7 @@ pub fn get_alpha_beta_action(board: &Board, depth: usize) -> Action {
                     if value > best_value {
                         actions = Vec::new();
                     }
-                    best_action = next_board.last_action;
+                    // best_action = next_board.last_action;
                     best_value = value;
                     actions.push(next_board.last_action.unwrap());
                 }
@@ -113,7 +113,7 @@ pub fn get_alpha_beta_action(board: &Board, depth: usize) -> Action {
                     if value < best_value {
                         actions = Vec::new();
                     }
-                    best_action = next_board.last_action;
+                    // best_action = next_board.last_action;
                     best_value = value;
                     actions.push(next_board.last_action.unwrap());
                 }

@@ -19,7 +19,7 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     let players = [
-        Player::new(PlayerKind::Pruning, 2),
+        Player::new(PlayerKind::Human, 0),
         Player::new(PlayerKind::Pruning, 3),
     ];
     let mut current_player = 0;
@@ -46,7 +46,6 @@ async fn main() {
             highlight_square(&board, last_action.end).await;
         }
         draw_pieces(&board).await;
-        next_frame().await;
 
         if board.is_moveless() {
             if board.is_check(board.turn) {
@@ -61,6 +60,7 @@ async fn main() {
                     circle_mark_square(&board, action.end).await;
                 }
             }
+            next_frame().await;
 
             match &players[current_player].kind {
                 PlayerKind::Human => {
