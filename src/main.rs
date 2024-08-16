@@ -31,7 +31,7 @@ async fn main() {
     // let start_fen = String::from("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1");
     board.set_fen(&start_fen);
 
-    let max_timer = 0;
+    let max_timer = 200;
     let mut timer = max_timer;
     loop {
         // let mut tree = board.get_position_tree(3);
@@ -46,6 +46,7 @@ async fn main() {
             highlight_square(&board, last_action.end).await;
         }
         draw_pieces(&board).await;
+        next_frame().await;
 
         if board.is_moveless() {
             if board.is_check(board.turn) {
@@ -105,6 +106,5 @@ async fn main() {
                 }
             }
         }
-        next_frame().await;
     }
 }

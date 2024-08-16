@@ -886,6 +886,17 @@ impl Board {
         }
         boards_and_actions
     }
+    pub fn get_next_boards(&self) -> Vec<Board> {
+        let mut boards = Vec::new();
+        let mut board = self.clone();
+        let actions = board.get_all_valid_actions();
+        for action in actions.iter() {
+            let mut board = self.clone();
+            let _ = board.commit_move(*action);
+            boards.push(board);
+        }
+        boards
+    }
     pub fn get_position_tree(&self, depth: usize) -> TreeNode {
         fn build_tree(
             board: Board,

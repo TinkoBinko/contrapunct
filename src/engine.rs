@@ -61,89 +61,71 @@ pub fn get_minimax_action(board: &Board, depth: usize) -> Action {
 }
 
 pub fn get_alpha_beta_action(board: &Board, depth: usize) -> Action {
-    let mut node = TreeNode {
-        board: board.clone(),
-        action: board.last_action,
-        value: 0.,
-        children: Vec::new(),
-    };
-
-    fn alpha_beta(
-        node: &mut TreeNode,
-        depth: usize,
-        alpha: f64,
-        beta: f64,
-    ) -> (Option<Action>, f64) {
-        let checkmate_worth = if node.board.turn == First {
+    let mut board = board.clone();
+    println!("Turn: {:?}", board.turn);
+    fn alpha_beta(board: &mut Board, depth: usize, alpha: f64, beta: f64) -> (Option<Action>, f64) {
+        let checkmate_worth = if board.turn == First {
             -f64::INFINITY
         } else {
             f64::INFINITY
         };
-        let next_actions_and_boards = node.board.get_next_actions_and_boards();
-        node.children = next_actions_and_boards
-            .iter()
-            .map(|(new_action, board)| TreeNode {
-                board: board.clone(),
-                action: Some(*new_action),
-                value: 0.,
-                children: Vec::new(),
-            })
-            .collect();
 
-        if depth == 0 || node.children.is_empty() {
-            if node.board.is_checkmate() {
-                node.value = checkmate_worth;
+        if depth == 0 || board.is_checkmate() {
+            let value = if board.is_checkmate() {
+                checkmate_worth
             } else {
-                node.value = node.board.get_material_difference();
-            }
-            return (node.action, node.value);
+                board.get_material_difference()
+            };
+            return (board.last_action, value);
         }
 
         let mut alpha = alpha;
         let mut beta = beta;
 
-        let mut best_action = None;
-
-        if node.board.turn == First {
-            // println!("First");
-            let mut value = -f64::INFINITY;
-            for child in node.children.iter_mut() {
-                let (_, ab) = alpha_beta(child, depth - 1, alpha, beta);
-                if ab > value {
-                    value = ab;
-                    best_action = child.board.last_action;
+        let mut actions: Vec<Action> = Vec::new();
+        let mut best_value = if board.turn == First {
+            -f64::INFINITY
+        } else {
+            f64::INFINITY
+        };
+        let mut next_boards = board.get_next_boards();
+        for next_board in next_boards.iter_mut() {
+            let (_, value) = alpha_beta(next_board, depth - 1, alpha, beta);
+            if board.turn == First {
+                if value >= best_value {
+                    if value > best_value {
+                        actions = Vec::new();
+                    }
+                    best_value = value;
+                    actions.push(next_board.last_action.unwrap());
                 }
-                alpha = f64::max(alpha, value);
+                alpha = f64::max(alpha, best_value);
+                if alpha >= beta {
+                    break;
+                }
+            } else {
+                if value <= best_value {
+                    if value < best_value {
+                        actions = Vec::new();
+                    }
+                    best_value = value;
+                    actions.push(next_board.last_action.unwrap());
+                }
+                beta = f64::min(beta, best_value);
                 if alpha >= beta {
                     break;
                 }
             }
-            return (best_action, value);
-        } else {
-            // println!("Second");
-            let mut value = f64::INFINITY;
-            for child in node.children.iter_mut() {
-                let (_, ab) = alpha_beta(child, depth - 1, alpha, beta);
-                if ab < value {
-                    value = ab;
-                    best_action = child.board.last_action;
-                }
-                beta = f64::min(beta, value);
-                if beta <= alpha {
-                    break;
-                }
-            }
-            return (best_action, value);
         }
+        (actions.choose(&mut rand::thread_rng()).cloned(), best_value)
     }
 
     let alpha = -f64::INFINITY;
     let beta = f64::INFINITY;
-    let (action, ab) = alpha_beta(&mut node, depth, alpha, beta);
+    let (action, ab) = alpha_beta(&mut board, depth, alpha, beta);
 
     if let Some(action) = action {
         println!("{:.2}", ab);
-        println!("{:?}", action);
         action
     } else {
         panic!("No valid action found")
