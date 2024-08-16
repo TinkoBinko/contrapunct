@@ -232,8 +232,11 @@ fn is_valid_promotion(board: &Board, start: Location, end: Location, color: Piec
     let size = board.size;
     let dx = end.col as i8 - start.col as i8;
     let dy = end.row as i8 - start.row as i8;
-    if is_valid_pawn_translation(size, start.row, dx, dy, color)
-        || is_valid_pawn_capture(board, size, start, end, color)
+    if is_valid_pawn_capture(board, size, start, end, color) {
+        return true;
+    }
+    if board.get_piece_from_location(end) == None
+        && is_valid_pawn_translation(board.size, start.row, dx, dy, color)
     {
         return true;
     }

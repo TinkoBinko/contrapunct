@@ -70,6 +70,7 @@ pub fn get_alpha_beta_action(board: &Board, depth: usize) -> Action {
             f64::INFINITY
         };
 
+        // println!("Depth: {}, Turn: {:?}", depth, board.turn);
         if board.is_checkmate() {
             return (board.last_action, checkmate_worth);
         }
@@ -105,7 +106,7 @@ pub fn get_alpha_beta_action(board: &Board, depth: usize) -> Action {
                     actions.push(next_board.last_action.unwrap());
                 }
                 alpha = f64::max(alpha, best_value);
-                if beta <= alpha {
+                if best_value >= beta {
                     break;
                 }
             } else {
@@ -118,7 +119,7 @@ pub fn get_alpha_beta_action(board: &Board, depth: usize) -> Action {
                     actions.push(next_board.last_action.unwrap());
                 }
                 beta = f64::min(beta, best_value);
-                if alpha >= beta {
+                if best_value <= alpha {
                     break;
                 }
             }

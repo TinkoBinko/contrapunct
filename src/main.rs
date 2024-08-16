@@ -19,8 +19,8 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     let players = [
-        Player::new(PlayerKind::Human, 0),
-        Player::new(PlayerKind::Pruning, 3),
+        Player::new(PlayerKind::Random, 0),
+        Player::new(PlayerKind::Pruning, 4),
     ];
     let mut current_player = 0;
 
@@ -31,7 +31,7 @@ async fn main() {
     // let start_fen = String::from("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1");
     board.set_fen(&start_fen);
 
-    let max_timer = 200;
+    let max_timer = 100;
     let mut timer = max_timer;
     loop {
         // let mut tree = board.get_position_tree(3);
@@ -53,6 +53,7 @@ async fn main() {
             } else {
                 println!("Game over. It's a draw");
             }
+            next_frame().await;
         } else {
             if let Some(location) = board.selected {
                 let actions = board.get_valid_actions(location);
